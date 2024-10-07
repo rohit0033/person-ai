@@ -47,7 +47,7 @@ export class MemoryManager {
       .similaritySearch(recentChatHistory, 3, { fileName: companionFileName })
       .catch((err) => {
         console.log("WARNING: failed to get vector search results.", err);
-        console.log("similarDocs",similarDocs)
+        // console.log("similarDocs",similarDocs)
       });
     return similarDocs;
   }
@@ -91,7 +91,7 @@ export class MemoryManager {
 
     result = result.slice(-30).reverse();
     const recentChats = result.reverse().join("\n");
-    console.log("Recent Chats idbs ",recentChats)
+    // console.log("Recent Chats idbs ",recentChats)
     return recentChats;
   }
 
@@ -102,7 +102,7 @@ export class MemoryManager {
   ) {
     const key = this.generateRedisCompanionKey(companionKey);
     if (await this.history.exists(key)) {
-      console.log("User already has chat history");
+      // console.log("User already has chat history");
       return;
     }
 

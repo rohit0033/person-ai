@@ -56,17 +56,17 @@ export async function POST (
         }
         const memoryManager = await MemoryManager.getInstance();
         const recentChatHistory = await memoryManager.readLatestHistory(companionKey);
-        // console.log("recentChat history",recentChatHistory)
-        console.log("companion_file_name",companion_file_name)
+        // // console.log("recentChat history",recentChatHistory)
+        // console.log("companion_file_name",companion_file_name)
 
         const similarDocs = await memoryManager.vectorSearch(recentChatHistory,companion_file_name);
-        console.log("SimilarDocs",similarDocs)
+        // console.log("SimilarDocs",similarDocs)
         let relevantHistorty = "";
         if(!!similarDocs && similarDocs.length !== 0){
             relevantHistorty = similarDocs.map((doc)=> doc.pageContent).join("\n");
             
         }
-        console.log(" First relevantHistorty",relevantHistorty)
+        // console.log(" First relevantHistorty",relevantHistorty)
         const {handlers} = LangChainStream();
         
         const model = new ChatOpenAI({
