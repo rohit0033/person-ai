@@ -1,104 +1,107 @@
-import { PrismaClient } from '@prisma/client';
+import { Redis } from '@upstash/redis';
+import { PineconeClient } from '@pinecone-database/pinecone';
+import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
+import { v4 as uuidv4 } from 'uuid';
 
 export type CompanionKey = {
-  companionId: string;
+  companionName: string;
   userId: string;
 };
 
 export class MemoryManager {
   private static instance: MemoryManager;
-  private prisma: PrismaClient;
+  private redis: Redis;
+  private pinecone: PineconeClient;
+  private embeddings: OpenAIEmbeddings;
 
   private constructor() {
-    this.prisma = new PrismaClient();
+    this.redis = Redis.fromEnv();
+    this.pinecone = new PineconeClient();
+    this.embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY });
   }
 
   public static async getInstance(): Promise<MemoryManager> {
     if (!MemoryManager.instance) {
       MemoryManager.instance = new MemoryManager();
+      await MemoryManager.instance.init();
     }
     return MemoryManager.instance;
   }
 
-  public async writeToHistory(text: string, companionKey: CompanionKey) {
-    if (!companionKey || !companionKey.companionId || !companionKey.userId) {
-      console.log("Companion key set incorrectly");
-      return null;
-    }
+  private async init() {
+    await this.pinecone.init({
+      environment: process.env.PINECONE_ENVIRONMENT!,
+      apiKey: process.env.PINECONE_API_KEY!,
+    });
+  }
 
-    const message = await this.prisma.message.create({
-      data: {
-        content: text,
-        role: 'system', // Assuming this is for AI responses. Adjust as needed.
-        companionId: companionKey.companionId,
-        userId: companionKey.userId,
+  private generateRedisKey(companionKey: CompanionKey): string {
+    return `${companionKey.companionName}-${companionKey.userId}`;
+  }
+
+  public async writeToHistory(text: string, companionKey: CompanionKey): Promise<void> {
+    const key = this.generateRedisKey(companionKey);
+    const timestamp = Date.now();
+    
+    // Store the raw text in Redis
+    await this.redis.zadd(key, { score: timestamp, member: text });
+    
+    // Create and store vector embedding in Pinecone
+    const vector = await this.embeddings.embedQuery(text);
+    const pineconeIndex = this.pinecone.Index(process.env.PINECONE_INDEX!);
+    await pineconeIndex.upsert({
+      upsertRequest: {
+        vectors: [{
+          id: uuidv4(),
+          values: vector,
+          metadata: {
+            text,
+            companionName: companionKey.companionName,
+            userId: companionKey.userId,
+          },
+        }],
       },
     });
-
-    return message;
   }
 
   public async readLatestHistory(companionKey: CompanionKey): Promise<string> {
-    if (!companionKey || !companionKey.companionId || !companionKey.userId) {
-      console.log("Companion key set incorrectly");
-      return "";
-    }
-
-    const messages = await this.prisma.message.findMany({
-      where: {
-        companionId: companionKey.companionId,
-        userId: companionKey.userId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 30, // Adjust this number as needed
-    });
-
-    const recentChats = messages.reverse().map(msg => `${msg.role}: ${msg.content}`).join("\n");
-    return recentChats;
+    const key = this.generateRedisKey(companionKey);
+    const result = await this.redis.zrange(key, 0, -1, { rev: true, byScore: true, offset: 0, count: 30 });
+    return result.reverse().join("\n");
   }
 
-  public async seedChatHistory(
-    seedContent: string,
-    delimiter: string = "\n",
+  public async vectorSearch(
+    searchText: string,
     companionKey: CompanionKey
-  ) {
-    const existingMessages = await this.prisma.message.findFirst({
-      where: {
-        companionId: companionKey.companionId,
-        userId: companionKey.userId,
+  ): Promise<string[]> {
+    const vector = await this.embeddings.embedQuery(searchText);
+    const pineconeIndex = this.pinecone.Index(process.env.PINECONE_INDEX!);
+    
+    const results = await pineconeIndex.query({
+      queryRequest: {
+        vector,
+        topK: 5,
+        includeMetadata: true,
+        filter: {
+          companionName: { $eq: companionKey.companionName },
+          userId: { $eq: companionKey.userId },
+        },
       },
     });
 
-    if (existingMessages) {
+    return results.matches?.map(match => (match.metadata as { text: string }).text) || [];
+  }
+
+  public async seedChatHistory(seedContent: string, companionKey: CompanionKey): Promise<void> {
+    const key = this.generateRedisKey(companionKey);
+    if (await this.redis.exists(key)) {
       console.log("User already has chat history");
       return;
     }
 
-    const content = seedContent.split(delimiter);
+    const content = seedContent.split("\n");
     for (const line of content) {
-      await this.prisma.message.create({
-        data: {
-          content: line,
-          role: 'system', // Adjust as needed
-          companionId: companionKey.companionId,
-          userId: companionKey.userId,
-        },
-      });
+      await this.writeToHistory(line, companionKey);
     }
-  }
-
-  // If you still need vector search functionality, you can keep a modified version of this method
-  public async vectorSearch(
-    recentChatHistory: string,
-    companionId: string
-  ) {
-    // Implement your vector search logic here
-    // This could involve using a separate vector database or implementing
-    // similarity search within your relational database
-    
-    // For now, we'll return an empty array
-    return [];
   }
 }

@@ -1,105 +1,85 @@
-import { StreamingTextResponse } from "ai";
-import { auth, currentUser } from "@clerk/nextjs";
-import { ChatOpenAI } from "@langchain/openai";
-import { NextResponse } from "next/server";
-import { MemoryManager, CompanionKey } from "@/lib/memory"; // Updated import
+import { NextRequest, NextResponse } from 'next/server';
+import { currentUser } from "@clerk/nextjs";
+import { OpenAIStream, StreamingTextResponse } from 'ai';
+import { Configuration, OpenAIApi } from 'openai-edge';
+import { MemoryManager, CompanionKey } from "@/lib/memory";
 import { rateLimit } from "@/lib/rate-limit";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StringOutputParser } from '@langchain/core/output_parsers'
 import prismadb from "@/lib/prismadb";
 
+const config = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY
+});
+const openai = new OpenAIApi(config);
+
 export async function POST(
-    request: Request,
+    request: NextRequest,
     { params }: { params: { chatId: string } }
 ) {
     try {
         const { prompt } = await request.json();
         const user = await currentUser();
-        if (!user || !user.firstName || !user.id) return new NextResponse("Unauthorized", { status: 401 });
+        if (!user || !user.id) return new NextResponse("Unauthorized", { status: 401 });
 
         const identifier = request.url + "-" + user.id;
         const { success } = await rateLimit(identifier)
         if (!success) return new NextResponse("Rate Limit Exceeded. Too many requests", { status: 429 });
 
-        const companion = await prismadb.companion.update({
-            where: { id: params.chatId },
-            data: {
-                messages: {
-                    create: {
-                        content: prompt,
-                        role: "user",
-                        userId: user.id,
-                    }
-                }
-            },
-            include: { messages: true }
+        const companion = await prismadb.companion.findUnique({
+            where: { id: params.chatId }
         });
 
-        if (!companion) return new NextResponse("Companion Not Found", { status: 404 });
+        if (!companion) {
+            return new NextResponse("Companion not found", { status: 404 });
+        }
 
         const companionKey: CompanionKey = {
-            companionId: companion.id,
+            companionName: companion.id,
             userId: user.id,
         };
 
         const memoryManager = await MemoryManager.getInstance();
 
-        const recentMessages = await prismadb.message.findMany({
-            where: { companionId: companion.id, userId: user.id },
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-        });
+        const relevantHistory = await memoryManager.vectorSearch(prompt, companionKey);
+        const recentChatHistory = await memoryManager.readLatestHistory(companionKey);
+
+        const similarContext = relevantHistory.join('\n');
+        const chatHistory = recentChatHistory;
+
+        const systemMessage = `You are ${companion.name}. ${companion.description}
         
-        const recentChatHistory = recentMessages
-            .reverse()
-            .map(msg => `${msg.role}: ${msg.content}`)
-            .join("\n");
+        Your personality: ${companion.instructions}
 
-        const model = new ChatOpenAI({
-            modelName: "gpt-3.5-turbo",
-            apiKey: process.env.OPENAI_API_KEY,
-            temperature: 0.9,
-        });
+        You must strictly follow these rules:
+        1. Stay in character as ${companion.name} at all times.
+        2. Use the personality traits and speaking style as described above.
+        3. Use the provided chat history and relevant past information for context, but don't reference them explicitly.
+        4. Respond directly to the human's prompt without repeating or rephrasing it.
+        5. Do not use any prefix before your response (like "${companion.name}:").
 
-        const template = `
-        The following is a friendly conversation between a human and AI. ${companion.instructions}
-        If the AI does not know the answer to a question, it truthfully says it does not know.
-        The AI answers as ${companion.name}. ONLY generate plain sentences without prefix of who is speaking.
-        DO NOT use ${companion.name}: prefix. Always try to find the answer in the recent chat history provided below.
+        Recent conversation context:
+        ${chatHistory}
 
-        Current conversation:
-        ${recentChatHistory}
+        Relevant past information:
+        ${similarContext}
 
         Human: ${prompt}
-        AI:
-        `;
+        ${companion.name}:`;
 
-        const promptTemplate = ChatPromptTemplate.fromTemplate(template);
-        const chain = promptTemplate.pipe(model).pipe(new StringOutputParser());
-
-        const response = await chain.invoke({});
-
-        await memoryManager.writeToHistory(response.trim(), companionKey);
-
-        await prismadb.companion.update({
-            where: { id: params.chatId },
-            data: {
-                messages: {
-                    create: {
-                        content: response.trim(),
-                        role: "system",
-                        userId: user.id,
-                    },
-                },
-            }
+        const response = await openai.createChatCompletion({
+            model: 'gpt-3.5-turbo',
+            stream: true,
+            messages: [
+                { role: "system", content: systemMessage },
+            ]
         });
 
-        const { Readable } = require('stream');
-        const s = new Readable();
-        s.push(response);
-        s.push(null);
+        const stream = OpenAIStream(response, {
+            onCompletion: async (completion: string) => {
+                await memoryManager.writeToHistory(`Human: ${prompt}\n${companion.name}: ${completion}`, companionKey);
+            },
+        });
 
-        return new StreamingTextResponse(s);
+        return new StreamingTextResponse(stream);
 
     } catch (error) {
         console.error("[CHAT_POST]", error);
