@@ -1,12 +1,9 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["fullTextSearch", "fullTextIndex"  ]
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
 datasource db {
@@ -14,14 +11,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model Category {
   id          String @id @default(uuid())
   name        String
   companions  Companion[]
 }
 
-model Companion{
+model Companion {
   id             String @id @default(uuid())
   userId         String
   userName       String
@@ -31,17 +27,15 @@ model Companion{
   instructions   String @db.Text
   seed           String @db.Text
 
-
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  category       Category @relation(fields : [categoryId], references: [id])
+  category       Category @relation(fields: [categoryId], references: [id])
   categoryId     String
   messages       Message[]
 
   @@index([categoryId])
- 
-
+  @@index([userId])
 }
 
 enum Role {
@@ -59,6 +53,9 @@ model Message {
   companionId  String
   userId       String
 
-  companion    Companion @relation(fields:[companionId], references: [id], onDelete: Cascade)
+  companion    Companion @relation(fields: [companionId], references: [id], onDelete: Cascade)
+  
   @@index([companionId])
+  @@index([userId])
+  @@index([createdAt])
 }
