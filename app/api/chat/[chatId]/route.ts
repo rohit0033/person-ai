@@ -24,30 +24,13 @@ export async function POST(
         const { success } = await rateLimit(identifier)
         if (!success) return new NextResponse("Rate Limit Exceeded. Too many requests", { status: 429 });
 
-        // const companion = await prismadb.companion.findUnique({
-        //     where: { id: params.chatId }
-        // });
-              /// Implementing storage for Chat 
-        const companion = await prismadb.companion.update({
-            where: {
-                id: params.chatId,
-              },
-              data: {
-                messages: {
-                  create: {
-                    content: prompt,
-                    role: 'user',
-                    userId: user.id,
-                  },
-                },
-              },
-
-        })
+        const companion = await prismadb.companion.findUnique({
+            where: { id: params.chatId }
+        });
 
         if (!companion) {
             return new NextResponse("Companion not found", { status: 404 });
         }
-  
 
         const companionKey: CompanionKey = {
             companionName: companion.id,
@@ -89,44 +72,40 @@ export async function POST(
                 { role: "system", content: systemMessage },
             ]
         });
+        const timestamp = new Date().toISOString();
 
         const stream = OpenAIStream(response, {
             onCompletion: async (completion: string) => {
                 await memoryManager.writeToHistory(`Human: ${prompt}\n${companion.name}: ${completion}`, companionKey);
-                await prismadb.companion.update({
-                    where: {
-                      id: params.chatId,
-                    },
-                    data: {
-                      messages: {
-                        create: {
-                          content: completion,
-                          role: 'system',
-                          userId: user.id,
+                await prismadb.$transaction([
+                    prismadb.companion.update({
+                        where: {
+                            id: params.chatId,
                         },
-                      },
-                    },
-                });
+                        data: {
+                            messages: {
+                                createMany: {
+                                    data: [
+                                        {
+                                            content: prompt,
+                                            role: 'user',
+                                            userId: user.id,
+                                            createdAt: timestamp,
+                                        },
+                                        {
+                                            content: completion,
+                                            role: 'system',
+                                            userId: user.id,
+                                            createdAt: new Date(Date.parse(timestamp) + 1000),
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                    })
+                ]);
             },
         });
-        // console.log("response", response);
-        // console.log("stream", stream);
-        // const responseData = await response.json();
-        // await prismadb.companion.update({
-        //     where: {
-        //       id: params.chatId,
-        //     },
-        //     data: {
-        //       messages: {
-        //         create: {
-        //           content: responseData.choices[0].message.content,
-        //           role: 'system',
-        //           userId: user.id,
-        //         },
-        //       },
-        //     },
-        //   });
-        
 
         return new StreamingTextResponse(stream);
 
