@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Home, Plus, Settings } from "lucide-react";
+import { Home, Plus, Settings,PersonStanding } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 export const Sidebar = () => {
@@ -15,6 +15,15 @@ export const Sidebar = () => {
       label: "Home",
       pro: false, //
     },
+    {
+      name:PersonStanding,
+      href: "/persons",
+      label: "Persons",
+      pro: false,
+      
+
+    },
+
     {
       name: Plus,
       href: "/companion/new",
