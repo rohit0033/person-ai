@@ -2,7 +2,21 @@ import Link from "next/link";
 import { ArrowRight, Bot, MessageSquare, Music, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import React, { ReactNode } from "react";
 
+// Define interfaces for component props
+interface FeatureCardProps {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}
+
+interface CompanionCardProps {
+  name: string;
+  role: string;
+  image: string;
+  description: string;
+}
 
 const LandingPage = () => {
   return (
@@ -101,14 +115,12 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-
-  
     </div>
   );
 };
 
 // Component for feature cards
-const FeatureCard = ({ icon, title, description }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description }) => {
   return (
     <div className="bg-card p-6 rounded-lg shadow-sm border border-border hover:shadow-md transition-shadow">
       <div className="mb-4">{icon}</div>
@@ -119,7 +131,7 @@ const FeatureCard = ({ icon, title, description }) => {
 };
 
 // Component for companion cards
-const CompanionCard = ({ name, role, image, description }) => {
+const CompanionCard: React.FC<CompanionCardProps> = ({ name, role, image, description }) => {
   return (
     <div className="bg-card rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow">
       <div className="relative h-48 w-full">
