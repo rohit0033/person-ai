@@ -59,3 +59,13 @@ model Message {
   @@index([userId])
   @@index([createdAt])
 }
+
+// prisma/schema.prisma
+model ApiKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  lastUsed  DateTime?
+}
