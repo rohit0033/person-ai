@@ -9,6 +9,7 @@ export default authMiddleware({
     "/persons",
     "/sign-in",
     "/sign-up",
+    "/api/external(.*)",
   ],
 });
  

@@ -1,8 +1,11 @@
 // lib/api-auth.ts
-import { NextResponse } from "next/server";
 import prismadb from "./prismadb";
+import { NextResponse } from "next/server";
 
-export async function validateApiKey(apiKey: string) {
+// Define a specific type for successful validation
+export type ApiKeyValidationResult = { userId: string } | null;
+
+export async function validateApiKey(apiKey: string): Promise<ApiKeyValidationResult> {
   try {
     const key = await prismadb.apiKey.findUnique({
       where: {
@@ -29,6 +32,6 @@ export async function validateApiKey(apiKey: string) {
     };
   } catch (error) {
     console.error("API Key validation error:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return null;
   }
 }

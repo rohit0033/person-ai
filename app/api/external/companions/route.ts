@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       }
       
       const keyData = await validateApiKey(apiKey);
-      if (!keyData || keyData instanceof NextResponse) {
+      if (!keyData) {
         return new NextResponse("Invalid API key", { status: 401 });
       }
       
