@@ -16,7 +16,6 @@ export default function DocumentationPage() {
           <TabsTrigger value="companions">Companions</TabsTrigger>
           <TabsTrigger value="conversations">Conversations</TabsTrigger>
           <TabsTrigger value="personality">Personality</TabsTrigger>
-          <TabsTrigger value="content">Content Generation</TabsTrigger>
         </TabsList>
         
         <TabsContent value="authentication">

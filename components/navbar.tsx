@@ -34,10 +34,12 @@ export const Navbar = () => {
         </Link>
       </div>
       <div className="flex items-center gap-x-1">
-        <Button variant ="premium"  size ="sm">
-          Upgrade
-          <Sparkle className="h-4 w-2 fill-white text-white ml-2" />
-        </Button>
+        <Link href="/documentation">
+          <Button variant="premium" size="sm">
+            Documentation
+            <Sparkle className="h-4 w-2 fill-white text-white ml-2" />
+          </Button>
+        </Link>
         <ModeToggle />
         <UserButton afterSignOutUrl="/"/>
       </div>
