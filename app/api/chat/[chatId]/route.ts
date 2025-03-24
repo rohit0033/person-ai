@@ -174,7 +174,9 @@ export async function POST(
     // Prepare system message
     const systemMessage = `You are ${companion.name}. ${companion.description}
         
-        Your personality: ${companion.instructions} & ${personalityContext}
+        Your personality: ${companion.instructions} 
+        Develop your character further by incorporating the following traits:
+        ${personalityContext} 
 
         You must strictly follow these rules:
         1. Stay in character as ${companion.name} at all times.
