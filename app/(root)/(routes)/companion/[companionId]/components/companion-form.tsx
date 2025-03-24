@@ -145,14 +145,23 @@ export const CompanionForm = ({
     try {
       if (initialData) {
         await axios.patch(`/api/companion/${initialData.id}`, values);
+        toast({
+          description: "Companion updated successfully",
+        });
+        router.refresh();
+        router.push(`/persons`); 
       } else {
-        await axios.post("/api/companion", values);
+        // Create new companion
+        const response = await axios.post("/api/companion", values);
+        const newCompanionId = response.data.id;
+        
+        toast({
+          description: "Companion created successfully!"
+        });
+        
+        // Redirect to the edit page for the new companion instead of home
+        router.push(`/persons`); 
       }
-      toast({
-        description: "Success",
-      });
-      router.refresh();
-      router.push("/");
     } catch (error) {
       toast({
         variant: "destructive",
