@@ -16,16 +16,16 @@ export async function GET(
     }
     
     const keyData = await validateApiKey(apiKey);
-    if (!keyData ) {
-        return new NextResponse("Invalid API key", { status: 401 });
-      }
+    if (!keyData) {
+      return new NextResponse("Invalid API key", { status: 401 });
+    }
     
     const userId = keyData.userId;
     
     const companion = await prismadb.companion.findUnique({
       where: {
         id: params.companionId,
-        userId: userId
+        userId
       }
     });
     
@@ -36,7 +36,7 @@ export async function GET(
     const memoryManager = await MemoryManager.getInstance();
     const history = await memoryManager.readLatestHistory({
       companionName: companion.id,
-      userId: userId
+      userId
     });
     
     return NextResponse.json({

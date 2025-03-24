@@ -15,7 +15,7 @@ export async function DELETE(
     }
     
     // Delete the API key and ensure it belongs to the current user
-    await prismadb.apiKey.delete({
+    await prismadb.userApiKey.delete({
       where: {
         id: params.keyId,
         userId: userId // This ensures users can only delete their own keys

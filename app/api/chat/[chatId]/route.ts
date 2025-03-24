@@ -6,10 +6,9 @@ import { Configuration, OpenAIApi } from "openai-edge";
 import { MemoryManager, CompanionKey } from "@/lib/memory";
 import { ResponseCache } from "@/lib/cache";
 import { rateLimit } from "@/lib/rate-limit";
+import { PersonalityAnalyzer } from "@/lib/personality-analyzer";
 import prismadb from "@/lib/prismadb";
 
-// // Set edge runtime for better performance
-// export const runtime = 'edge';
 
 const config = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -22,8 +21,9 @@ export async function POST(
 ) {
   console.time('total-request-time');
   try {
-    const { prompt } = await request.json();
+    const { prompt} = await request.json();
     const user = await currentUser();
+    
     if (!user || !user.id)
       return new NextResponse("Unauthorized", { status: 401 });
 
@@ -74,13 +74,27 @@ export async function POST(
           .then(companion => {
             if (companion) {
               const memoryManager = MemoryManager.getInstance();
+              const exchangeText = `Human: ${prompt}\n${companion.name}: ${cachedResponse}`;
+              
               // Add to memory in background
-              memoryManager.then(mm => 
-                mm.writeToHistory(
-                  `Human: ${prompt}\n${companion.name}: ${cachedResponse}`,
-                  { companionName: params.chatId, userId: user.id }
-                )
-              );
+              memoryManager.then(mm => mm.writeToHistory(
+                exchangeText,
+                { companionName: params.chatId, userId: user.id }
+              ));
+              
+              // Analyze personality in background
+              Promise.resolve().then(async () => {
+                try {
+                  const analyzer = new PersonalityAnalyzer();
+                  await analyzer.analyzeConversation(
+                    exchangeText,
+                    companion.name,
+                    { companionName: params.chatId, userId: user.id }
+                  );
+                } catch (error) {
+                  console.error("Background personality analysis failed:", error);
+                }
+              });
             }
           })
       ]).catch(err => console.error("Background operation failed:", err));
@@ -89,7 +103,6 @@ export async function POST(
       return new Response(cachedResponse);
     }
 
-    // If no cache hit, continue with regular flow
     // Apply rate limiting
     const identifier = request.url + "-" + user.id;
     const { success } = await rateLimit(identifier);
@@ -117,14 +130,28 @@ export async function POST(
 
     console.time('memory-operations');
     // Parallelize memory operations
-    const [relevantHistory, recentChatHistory] = await Promise.all([
-      memoryManager.vectorSearch(prompt, companionKey),
-      memoryManager.readLatestHistory(companionKey),
+    const [personalityTraits, vectorResults, recentChatHistory] = await Promise.all([
+      memoryManager.getPersonalityTraits({
+        companionName: params.chatId,
+        userId: user.id
+      }),
+      memoryManager.vectorSearch(prompt, {
+        companionName: params.chatId,
+        userId: user.id
+      }),
+      memoryManager.readLatestHistory({
+        companionName: params.chatId,
+        userId: user.id
+      })
     ]);
     console.timeEnd('memory-operations');
 
-    const similarContext = relevantHistory.join("\n");
+    // const similarContext = relevantHistory.join("\n");
     const chatHistory = recentChatHistory;
+    const personalityContext = personalityTraits.length > 0
+    ? `Your personality traits (incorporate these naturally in your responses):
+      ${personalityTraits.map(t => `- ${t.type}: ${t.content}`).join('\n        ')}`
+    : '';
 
     // Pre-compute embedding for vectorization (happens in parallel with OpenAI request)
     const vectorizationPromise = (async () => {
@@ -135,7 +162,6 @@ export async function POST(
         
         // Generate embedding early
         const vector = await memoryManager.embeddings.embedQuery(textToVectorize);
-        
         console.timeEnd('vector-embedding');
         return vector;
       } catch (error) {
@@ -148,7 +174,7 @@ export async function POST(
     // Prepare system message
     const systemMessage = `You are ${companion.name}. ${companion.description}
         
-        Your personality: ${companion.instructions}
+        Your personality: ${companion.instructions} & ${personalityContext}
 
         You must strictly follow these rules:
         1. Stay in character as ${companion.name} at all times.
@@ -162,18 +188,24 @@ export async function POST(
         ${chatHistory}
 
         Relevant past information:
-        ${similarContext}
+       ${vectorResults.join('\n')}
 
         Human: ${prompt}
         ${companion.name}:`;
 
     console.time('openai-request');
-    // Use a faster model with lower temperature and shorter outputs
-    const response = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo", // Consider using gpt-3.5-turbo-instruct for even faster responses
+    
+    // Use the user's API key if provided, otherwise use the default
+    const clientConfig = new Configuration({
+      apiKey:  process.env.OPENAI_API_KEY,
+    });
+    const client = new OpenAIApi(clientConfig);
+    
+    const response = await client.createChatCompletion({
+      model: "gpt-3.5-turbo",
       stream: true,
-      temperature: 0.6, // Lower temperature = faster + more deterministic
-      max_tokens: 150, // Limit token length for faster responses
+      temperature: 0.7,
+      max_tokens: 300,
       messages: [{ role: "system", content: systemMessage }],
     });
     console.timeEnd('openai-request');
@@ -227,9 +259,39 @@ export async function POST(
         
         // Wait for all operations to complete
         await Promise.all(promises);
+        const messageCount = await prismadb.message.count({
+          where: {
+            companionId: params.chatId,
+            userId: user.id
+          }
+        });
+        
+    // Run personality analysis
+    // More intensive analysis for first few messages
+    const priorityAnalysis = messageCount < 5;
+    
+    // Format the conversation snippet for analysis
+    // const conversationSnippet = `Human: ${prompt}\n${companion.name}: ${response_text}`;
+    
+    // Run analysis in the background so it doesn't slow down the response
+    Promise.resolve().then(async () => {
+      try {
+        const analyzer = new PersonalityAnalyzer();
+        await analyzer.analyzeConversation(
+          exchangeText,
+          companion.name,
+          { companionName: params.chatId, userId: user.id },
+          priorityAnalysis
+        );
+      } catch (error) {
+        console.error("Background personality analysis failed:", error);
+      }
+    });
+        
         console.timeEnd('post-completion-operations');
       },
     });
+
 
     console.timeEnd('total-request-time');
     return new StreamingTextResponse(stream);

@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Wand2, Loader } from "lucide-react";
+import { Wand2, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -79,6 +79,7 @@ export const CompanionForm = ({
   const router = useRouter();
   const { toast } = useToast();
   const [isAutoCompleting, setIsAutoCompleting] = useState(false);
+  const [isGeneratingPersonality, setIsGeneratingPersonality] = useState(false);
 
   const form = useForm<z.infer<typeof formschema>>({
     resolver: zodResolver(formschema),
@@ -92,52 +93,43 @@ export const CompanionForm = ({
     },
   });
   const isLoading = form.formState.isSubmitting;
-
-  const handleAutoComplete = async () => {
-    try {
-      const name = form.getValues("name");
-      const description = form.getValues("description");
-      const categoryId = form.getValues("categoryId");
-
-      // Validate required fields
-      if (!name || !description) {
-        toast({
-          variant: "destructive",
-          description: "Name and description are required for auto-completion",
-        });
-        return;
-      }
-
-      // Set loading state
-      setIsAutoCompleting(true);
-
-      // Call the API endpoint
-      const response = await axios.post("/api/completion", {
-        name,
-        description,
-        category: categoryId,
-      });
-      form.setValue("instructions", response.data.instructions, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-
-      form.setValue("seed", response.data.exampleConversation, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-
-      toast({
-        description: "Successfully generated content!",
-      });
-    } catch (error) {
-      console.error(error);
+  const generatePersonality = async () => {
+    if (!form.getValues("name") || !form.getValues("description")) {
       toast({
         variant: "destructive",
-        description: "Failed to generate content. Please try again.",
+        description:
+          "Name and description are required to generate personality",
       });
+      return;
+    }
+
+    try {
+      setIsGeneratingPersonality(true);
+
+      const response = await axios.post("/api/completion", {
+        name: form.getValues("name"),
+        description: form.getValues("description"),
+        type: "personality",
+      });
+
+      if (response.data) {
+        form.setValue("instructions", response.data.instructions, {
+          shouldValidate: true,
+        });
+        form.setValue("seed", response.data.seed, { shouldValidate: true });
+
+        toast({
+          description: "Personality generated successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        description: "Failed to generate personality",
+      });
+      console.error(error);
     } finally {
-      setIsAutoCompleting(false);
+      setIsGeneratingPersonality(false);
     }
   };
 
@@ -149,18 +141,18 @@ export const CompanionForm = ({
           description: "Companion updated successfully",
         });
         router.refresh();
-        router.push(`/persons`); 
+        router.push(`/persons`);
       } else {
         // Create new companion
         const response = await axios.post("/api/companion", values);
         const newCompanionId = response.data.id;
-        
+
         toast({
-          description: "Companion created successfully!"
+          description: "Companion created successfully!",
         });
-        
+
         // Redirect to the edit page for the new companion instead of home
-        router.push(`/persons`); 
+        router.push(`/persons`);
       }
     } catch (error) {
       toast({
@@ -291,24 +283,28 @@ export const CompanionForm = ({
             </div>
             <Separator className="bg-primary/10" />
             <Button
-              variant="outline"
-              onClick={handleAutoComplete}
-              disabled={isLoading || isAutoCompleting}
               type="button"
+              variant="outline" // Keep your original styling
+              onClick={generatePersonality}
+              disabled={isLoading || isGeneratingPersonality}
             >
-              {isAutoCompleting ? (
+              {isGeneratingPersonality ? (
                 <>
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating Personality...
                 </>
               ) : (
                 <>
                   <Wand2 className="w-4 h-4 mr-2" />
-                  Auto Complete
+                  Generate Personality
                 </>
               )}
             </Button>
-            <p> Please Note  this auto completions is not always true what you want , please check before submission</p>
+            <p>
+              {" "}
+              Please Note this auto completions is not always true what you want
+              , please check before submission
+            </p>
           </div>
           <FormField
             name="instructions"

@@ -146,7 +146,7 @@ const CompanionCard: React.FC<CompanionCardProps> = ({ name, role, image, descri
         <h3 className="text-xl font-semibold">{name}</h3>
         <p className="text-primary font-medium">{role}</p>
         <p className="mt-2 text-muted-foreground">{description}</p>
-        <Link href={`/chat/${name.toLowerCase()}`} className="mt-4 inline-block">
+        <Link href={`/persons`} className="mt-4 inline-block">
           <Button variant="outline" size="sm">
             Chat Now
           </Button>

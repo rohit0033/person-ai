@@ -1,37 +1,44 @@
 // lib/api-auth.ts
-import prismadb from "./prismadb";
-import { NextResponse } from "next/server";
+import { randomBytes, createHash } from 'crypto';
+import prismadb from './prismadb';
 
-// Define a specific type for successful validation
-export type ApiKeyValidationResult = { userId: string } | null;
-
-export async function validateApiKey(apiKey: string): Promise<ApiKeyValidationResult> {
-  try {
-    const key = await prismadb.apiKey.findUnique({
-      where: {
-        key: apiKey
-      }
-    });
-    
-    if (!key) {
-      return null;
+export async function generateApiKey(userId: string, name: string): Promise<string> {
+  // Generate a secure random key
+  const keyBuffer = randomBytes(32);
+  const key = `pnkey_${keyBuffer.toString('hex')}`;
+  
+  // Hash the key for storage (never store raw keys)
+  const hashedKey = createHash('sha256').update(key).digest('hex');
+  
+  // Store in the database
+  await prismadb.userApiKey.create({
+    data: {
+      userId,
+      name,
+      key: hashedKey,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365) // 1 year expiry
     }
-    
-    // Update last used timestamp
-    await prismadb.apiKey.update({
-      where: {
-        id: key.id
-      },
-      data: {
-        lastUsed: new Date()
-      }
-    });
-    
-    return {
-      userId: key.userId
-    };
-  } catch (error) {
-    console.error("API Key validation error:", error);
+  });
+  
+  // Return the raw key (only time it's available)
+  return key;
+}
+
+export async function validateApiKey(providedKey: string): Promise<{ userId: string } | null> {
+  // Hash the provided key
+  const hashedKey = createHash('sha256').update(providedKey).digest('hex');
+  
+  // Look up in database
+  const apiKey = await prismadb.userApiKey.findUnique({
+    where: { key: hashedKey }
+  });
+  
+  if (!apiKey) return null;
+  
+  // Check if expired
+  if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
     return null;
   }
+  
+  return { userId: apiKey.userId };
 }

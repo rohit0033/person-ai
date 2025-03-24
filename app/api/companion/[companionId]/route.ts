@@ -1,6 +1,7 @@
 import prisamdb from "@/lib/prismadb";
 import { auth, currentUser } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
+import { PersonalityAnalyzer } from "@/lib/personality-analyzer";
 
 export async function PATCH(
     req: Request,
@@ -41,6 +42,16 @@ export async function PATCH(
            seed
         }
     })
+    const analyzer = new PersonalityAnalyzer();
+    const companionKey = {
+      companionName: companion.id,
+      userId: user.id
+    };
+    
+    // Run in background to not delay response
+    Promise.resolve().then(async () => {
+      await analyzer.extractInitialPersonality(companion, companionKey);
+    });
 
 
     return NextResponse.json(companion);

@@ -32,6 +32,7 @@ interface ApiKey {
   id: string;
   name: string;
   createdAt: string;
+  expiresAt: string | null;
 }
 
 const ApiKeysPage = () => {
@@ -65,7 +66,7 @@ const ApiKeysPage = () => {
   }, [fetchApiKeys]);
 
   const generateApiKey = async () => {
-    if(newKeyName.trim()){
+    if(!newKeyName.trim()){
       toast({
         variant: "destructive",
         title: "Name Required",
@@ -76,8 +77,8 @@ const ApiKeysPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.post(`/api/external/api-keys?name=${encodeURIComponent(newKeyName)}`);
-      setNewApiKey(response.data.apiKey);
+      const response = await axios.post('/api/external/api-keys', { name: newKeyName });
+      setNewApiKey(response.data.key);
       setNewKeyName("");
       setShowModal(true);
 
@@ -90,6 +91,8 @@ const ApiKeysPage = () => {
         description: "There was a problem generating your API key."
       });
       
+    }finally {
+      setIsLoading(false);
     }
 
   }
@@ -166,6 +169,8 @@ const ApiKeysPage = () => {
           <Input
             placeholder="API Key name"
             className="w-1/2"
+            value={newKeyName}
+            onChange={(e) => setNewKeyName(e.target.value)}
 
           />
           <Button  onClick={generateApiKey}disabled={isLoading} >

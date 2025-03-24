@@ -2,6 +2,7 @@ import { Redis } from '@upstash/redis';
 import { PineconeClient } from '@pinecone-database/pinecone';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { v4 as uuidv4 } from 'uuid';
+import prisamdb from './prismadb';
 
 export type CompanionKey = {
   companionName: string;
@@ -130,8 +131,64 @@ export class MemoryManager {
       },
     });
 
-    return results.matches?.map(match => (match.metadata as { text: string }).text) || [];
+    if (!results.matches || results.matches.length === 0) {
+      return [];
+    }
+
+    return results.matches
+      .map((match) => (match.metadata as { text: string }).text)
+      .filter(Boolean);
   }
+
+  public async storePersonalityTrait(
+    trait: {
+      type: string;          // e.g., "interest", "opinion", "behavior"
+      content: string;       // the actual trait
+      confidence: number;    // how confident we are (0-1)
+      source: string;        // the conversation that revealed this
+    },
+    companionKey: CompanionKey
+  ): Promise<void> {
+    const key = `personality:${companionKey.companionName}:${companionKey.userId}`;
+    
+    // Store trait in Redis sorted by confidence
+    await this.redis.zadd(key, {
+      score: trait.confidence,
+      member: JSON.stringify({
+        type: trait.type,
+        content: trait.content,
+        source: trait.source,
+        timestamp: Date.now()
+      })
+    });
+  }
+  public async getPersonalityTraits(
+    companionKey: CompanionKey,
+    type?: string,
+    minConfidence: number = 0.7
+  ): Promise<any[]> {
+    const whereClause: any = {
+      companionId: companionKey.companionName,
+      userId: companionKey.userId,
+      confidence: {
+        gte: minConfidence
+      }
+    };
+    
+    if (type) {
+      whereClause.type = type;
+    }
+    
+    return prisamdb.personalityTrait.findMany({
+      where: whereClause,
+      orderBy: {
+        confidence: 'desc'
+      },
+      take: 30 // Limit to most confident traits
+    });
+  }
+
+
 
   public async seedChatHistory(seedContent: string, companionKey: CompanionKey): Promise<void> {
     const key = this.generateRedisKey(companionKey);
