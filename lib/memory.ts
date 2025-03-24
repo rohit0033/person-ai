@@ -12,7 +12,7 @@ export class MemoryManager {
   private static instance: MemoryManager;
   private redis: Redis;
   private pinecone: PineconeClient;
-  private embeddings: OpenAIEmbeddings;
+  public embeddings: OpenAIEmbeddings;
 
   private constructor() {
     this.redis = Redis.fromEnv();
@@ -37,6 +37,39 @@ export class MemoryManager {
 
   private generateRedisKey(companionKey: CompanionKey): string {
     return `${companionKey.companionName}-${companionKey.userId}`;
+  }
+  public async writeToHistoryWithVector(
+    text: string, 
+    companionKey: CompanionKey,
+    vector: number[]
+  ): Promise<void> {
+    // Use the pre-computed vector instead of computing it again
+    const key = this.generateRedisKey(companionKey);
+    const timestamp = Date.now();
+    
+    // Store in Redis for conversation history  
+    await this.redis.zadd(key, {
+      score: timestamp,
+      member: text,
+    });
+    
+    // Store in vector database using pre-computed vector
+    const pineconeIndex = this.pinecone.Index(process.env.PINECONE_INDEX!);
+    await pineconeIndex.upsert({
+      upsertRequest: {
+        vectors: [
+          {
+            id: uuidv4(),
+            values: vector,
+            metadata: {
+              text,
+              companionName: companionKey.companionName,
+              userId: companionKey.userId,
+            },
+          },
+        ],
+      },
+    });
   }
 
   public async writeToHistory(text: string, companionKey: CompanionKey): Promise<void> {
@@ -74,9 +107,17 @@ export class MemoryManager {
     searchText: string,
     companionKey: CompanionKey
   ): Promise<string[]> {
-    const vector = await this.embeddings.embedQuery(searchText);
-    const pineconeIndex = this.pinecone.Index(process.env.PINECONE_INDEX!);
+    const cacheKey = `vector_embedding:${searchText}`;
+    let vector: number[];
     
+    const cachedVector = await this.redis.get(cacheKey);
+    if (cachedVector) {
+      vector = JSON.parse(cachedVector as string);
+    } else {
+      vector = await this.embeddings.embedQuery(searchText);
+      await this.redis.set(cacheKey, JSON.stringify(vector), { ex: 3600 }); // 1hr expiry
+    }
+    const pineconeIndex = this.pinecone.Index(process.env.PINECONE_INDEX!);
     const results = await pineconeIndex.query({
       queryRequest: {
         vector,

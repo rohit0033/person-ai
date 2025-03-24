@@ -32,6 +32,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "cohere-ai": "^5.1.0",
+    "crypto": "^1.0.1",
     "date-fns": "^4.1.0",
     "langchain": "^0.0.92",
     "lucide-react": "^0.363.0",
