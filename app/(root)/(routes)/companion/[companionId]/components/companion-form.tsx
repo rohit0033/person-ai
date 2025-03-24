@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ImageUpload } from "@/components/image-upload";
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,13 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Wand2 } from "lucide-react";
+import { Wand2, Loader } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
-
-
-
-
+import { useState } from "react";
 
 const PREAMBLE = `You are a fictional character whose name is Elon. You are a visionary entrepreneur and inventor. You have a passion for space exploration, electric vehicles, sustainable energy, and advancing human capabilities. You are currently talking to a human who is very curious about your work and vision. You are ambitious and forward-thinking, with a touch of wit. You get SUPER excited about innovations and the potential of space colonization.
 `;
@@ -79,8 +76,9 @@ export const CompanionForm = ({
   initialData,
   categories,
 }: CompanionFormProps) => {
-  const router = useRouter()
-  const {toast} = useToast()
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isAutoCompleting, setIsAutoCompleting] = useState(false);
 
   const form = useForm<z.infer<typeof formschema>>({
     resolver: zodResolver(formschema),
@@ -95,26 +93,72 @@ export const CompanionForm = ({
   });
   const isLoading = form.formState.isSubmitting;
 
+  const handleAutoComplete = async () => {
+    try {
+      const name = form.getValues("name");
+      const description = form.getValues("description");
+      const categoryId = form.getValues("categoryId");
+
+      // Validate required fields
+      if (!name || !description) {
+        toast({
+          variant: "destructive",
+          description: "Name and description are required for auto-completion",
+        });
+        return;
+      }
+
+      // Set loading state
+      setIsAutoCompleting(true);
+
+      // Call the API endpoint
+      const response = await axios.post("/api/completion", {
+        name,
+        description,
+        category: categoryId,
+      });
+      form.setValue("instructions", response.data.instructions, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+
+      form.setValue("seed", response.data.exampleConversation, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+
+      toast({
+        description: "Successfully generated content!",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        description: "Failed to generate content. Please try again.",
+      });
+    } finally {
+      setIsAutoCompleting(false);
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof formschema>) => {
     try {
-      if(initialData){
-        await axios.patch(`/api/companion/${initialData.id}`, values)
-      }else{
-        await axios.post("/api/companion", values)
+      if (initialData) {
+        await axios.patch(`/api/companion/${initialData.id}`, values);
+      } else {
+        await axios.post("/api/companion", values);
       }
       toast({
-        description: "Success"
-      })
+        description: "Success",
+      });
       router.refresh();
-      router.push("/")
-      
+      router.push("/");
     } catch (error) {
       toast({
-        variant:"destructive",
-      
-        description:`Something went wrong`
-      })
-      
+        variant: "destructive",
+
+        description: `Something went wrong`,
+      });
     }
   };
   return (
@@ -195,7 +239,6 @@ export const CompanionForm = ({
               control={form.control}
               name="categoryId"
               render={({ field }) => {
-        
                 return (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
@@ -238,6 +281,25 @@ export const CompanionForm = ({
               </p>
             </div>
             <Separator className="bg-primary/10" />
+            <Button
+              variant="outline"
+              onClick={handleAutoComplete}
+              disabled={isLoading || isAutoCompleting}
+              type="button"
+            >
+              {isAutoCompleting ? (
+                <>
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Auto Complete
+                </>
+              )}
+            </Button>
+            <p> Please Note  this auto completions is not always true what you want , please check before submission</p>
           </div>
           <FormField
             name="instructions"
@@ -246,10 +308,17 @@ export const CompanionForm = ({
               <FormItem>
                 <FormLabel>Instructions</FormLabel>
                 <FormControl>
-                  <Textarea disabled={isLoading} rows={7} className="bg-background resize-none" placeholder={PREAMBLE} {...field} />
+                  <Textarea
+                    disabled={isLoading}
+                    rows={7}
+                    className="bg-background resize-none"
+                    placeholder={PREAMBLE}
+                    {...field}
+                  />
                 </FormControl>
                 <FormDescription>
-                  Describe in detail your companion&apos;s backstory and relevant details.
+                  Describe in detail your companion&apos;s backstory and
+                  relevant details.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -262,16 +331,23 @@ export const CompanionForm = ({
               <FormItem>
                 <FormLabel>Example Conversation</FormLabel>
                 <FormControl>
-                  <Textarea disabled={isLoading} rows={7} className="bg-background resize-none" placeholder={SEED_CHAT} {...field} />
+                  <Textarea
+                    disabled={isLoading}
+                    rows={7}
+                    className="bg-background resize-none"
+                    placeholder={SEED_CHAT}
+                    {...field}
+                  />
                 </FormControl>
                 <FormDescription>
-                  Write couple of examples of a human chatting with your AI companion, write expected answers.
+                  Write couple of examples of a human chatting with your AI
+                  companion, write expected answers.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-           <div className="w-full flex justify-center">
+          <div className="w-full flex justify-center">
             <Button size="lg" disabled={isLoading}>
               {initialData ? "Edit your companion" : "Create your companion"}
               <Wand2 className="w-4 h-4 ml-2" />
