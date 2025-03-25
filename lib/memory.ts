@@ -77,7 +77,7 @@ export class MemoryManager {
     const key = this.generateRedisKey(companionKey);
     const timestamp = Date.now();
     
-    // Store the raw text in Redis
+    // Store the raw text in Redis // TO do I think we dont need this
     await this.redis.zadd(key, { score: timestamp, member: text });
     
     // Create and store vector embedding in Pinecone

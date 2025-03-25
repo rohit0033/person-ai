@@ -97,7 +97,7 @@ export class PersonalityAnalyzer {
       }
       
       // Set cooldown for 5 minutes
-      await this.redis.set(cacheKey, Date.now().toString(), { ex: 300 });
+      await this.redis.set(cacheKey, Date.now().toString(), { ex: 60 });
     }
     
     try {
