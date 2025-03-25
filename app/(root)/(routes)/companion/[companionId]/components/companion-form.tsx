@@ -30,6 +30,9 @@ import { Wand2, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Twitter } from "lucide-react";
+import TwitterAnalysisModal from "@/components/TwitterAnalysisModal";
+// import { TwitterAnalysisModal } from "@/components/twitter-analysis-modal";
 
 const PREAMBLE = `You are a fictional character whose name is Elon. You are a visionary entrepreneur and inventor. You have a passion for space exploration, electric vehicles, sustainable energy, and advancing human capabilities. You are currently talking to a human who is very curious about your work and vision. You are ambitious and forward-thinking, with a touch of wit. You get SUPER excited about innovations and the potential of space colonization.
 `;
@@ -80,7 +83,14 @@ export const CompanionForm = ({
   const { toast } = useToast();
   const [isAutoCompleting, setIsAutoCompleting] = useState(false);
   const [isGeneratingPersonality, setIsGeneratingPersonality] = useState(false);
-
+  const [isTwitterModalOpen, setIsTwitterModalOpen] = useState(false);
+  const handleTwitterAnalysisComplete = (
+    instructions: string,
+    conversation: string
+  ) => {
+    form.setValue("instructions", instructions, { shouldValidate: true });
+    form.setValue("seed", conversation, { shouldValidate: true });
+  };
   const form = useForm<z.infer<typeof formschema>>({
     resolver: zodResolver(formschema),
     defaultValues: initialData || {
@@ -169,6 +179,11 @@ export const CompanionForm = ({
           onSubmit={form.handleSubmit(onSubmit)}
           className="space-y-8 pb-10"
         >
+          <TwitterAnalysisModal
+            isOpen={isTwitterModalOpen}
+            onClose={() => setIsTwitterModalOpen(false)}
+            onAnalysisComplete={handleTwitterAnalysisComplete}
+          />
           <div className="space-y-2 w-full col-span-2 ">
             <div>
               <h3 className="text-lg font-medium">General Information</h3>
@@ -282,30 +297,44 @@ export const CompanionForm = ({
               </p>
             </div>
             <Separator className="bg-primary/10" />
-            <Button
-              type="button"
-              variant="outline" // Keep your original styling
-              onClick={generatePersonality}
-              disabled={isLoading || isGeneratingPersonality}
-            >
-              {isGeneratingPersonality ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating Personality...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Generate Personality
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 items-center mb-4">
+              <Button
+                type="button"
+                variant="outline" // Keep your original styling
+                onClick={generatePersonality}
+                disabled={isLoading || isGeneratingPersonality}
+              >
+                {isGeneratingPersonality ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Personality...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Generate Personality
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsTwitterModalOpen(true)}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                <Twitter className="h-4 w-4 text-[#1DA1F2]" />
+                Twitter Inspiration
+              </Button>
+            </div>
+
             <p>
               {" "}
               Please Note this auto completions is not always true what you want
               , please check before submission
             </p>
           </div>
+
           <FormField
             name="instructions"
             control={form.control}

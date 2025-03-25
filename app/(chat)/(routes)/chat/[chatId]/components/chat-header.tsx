@@ -61,41 +61,43 @@ export const ChatHeader = ({ companion }: ChatHeaderProps) => {
         </div>
       </div>
       <div className="flex items-center gap-x-2">
-        <Button 
-          onClick={() => router.push(`/companion/${companion.id}/personality`)}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-x-2"
-        >
-          <Brain className="h-4 w-4" />
-          <span className="hidden sm:block">Personality</span>
-        </Button>
         {user?.id === companion.userId && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon">
-                <MoreVertical />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => router.push(`/companion/${companion.id}`)}
-              >
-                <Edit className="w-4 h-4 mr-2 " />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => router.push(`/companion/${companion.id}/personality`)}
-              >
-                <Brain className="w-4 h-4 mr-2 " />
-                Personality
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete}>
-                <Trash className="w-4 h-4 mr-2 " />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <>
+            <Button 
+              onClick={() => router.push(`/companion/${companion.id}/personality`)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-x-2"
+            >
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:block">Personality</span>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="icon">
+                  <MoreVertical />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => router.push(`/companion/${companion.id}`)}
+                >
+                  <Edit className="w-4 h-4 mr-2 " />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/companion/${companion.id}/personality`)}
+                >
+                  <Brain className="w-4 h-4 mr-2 " />
+                  Personality
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onDelete}>
+                  <Trash className="w-4 h-4 mr-2 " />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         )}
       </div>
     </div>
