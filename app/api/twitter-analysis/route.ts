@@ -18,12 +18,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Parse request body
-        const identifier = request.url + "-" + userId;
-        const { success } = await CustomApiRateLimit(identifier);
-          if (!success)
-            return new NextResponse("Rate Limit Exceeded. Too many requests", {
-              status: 429,
-        });
+        // const identifier = request.url + "-" + userId;
+        // const { success } = await CustomApiRateLimit(identifier);
+        //   if (!success)
+        //     return new NextResponse("Rate Limit Exceeded. Too many requests", {
+        //       status: 429,
+        // });
     const body = await request.json();
     const { username,name } = body;
     

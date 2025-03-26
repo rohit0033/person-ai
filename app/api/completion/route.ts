@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
-    const identifier = request.url + "-" + userId;
-    const { success } = await CustomApiRateLimit(identifier);
-    if (!success)
-      return new NextResponse("Rate Limit Exceeded. Too many requests", {
-        status: 429,
-      });
+    // const identifier = request.url + "-" + userId;
+    // const { success } = await CustomApiRateLimit(identifier);
+    // if (!success)
+    //   return new NextResponse("Rate Limit Exceeded. Too many requests", {
+    //     status: 429,
+    //   });
     const data = await request.json();
     const { name, description, category } = data;
     if (!name || !description || !category) {
