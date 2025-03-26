@@ -2,7 +2,20 @@
 import { randomBytes, createHash } from 'crypto';
 import prismadb from './prismadb';
 
-export async function generateApiKey(userId: string, name: string): Promise<string> {
+interface ApiKeyData {
+  id: string;
+  userId: string;
+  name: string;
+  key: string;
+  createdAt: Date;
+  expiresAt: Date | null;
+}
+interface GenerateApiKeyResponse {
+  key: string;
+  keyData: ApiKeyData;
+}
+
+export async function generateApiKey(userId: string, name: string): Promise<GenerateApiKeyResponse> {
   // Generate a secure random key
   const keyBuffer = randomBytes(32);
   const key = `pnkey_${keyBuffer.toString('hex')}`;
@@ -11,7 +24,7 @@ export async function generateApiKey(userId: string, name: string): Promise<stri
   const hashedKey = createHash('sha256').update(key).digest('hex');
   
   // Store in the database
-  await prismadb.userApiKey.create({
+  const keyData= await prismadb.userApiKey.create({
     data: {
       userId,
       name,
@@ -21,7 +34,7 @@ export async function generateApiKey(userId: string, name: string): Promise<stri
   });
   
   // Return the raw key (only time it's available)
-  return key;
+  return { key, keyData };
 }
 
 export async function validateApiKey(providedKey: string): Promise<{ userId: string } | null> {

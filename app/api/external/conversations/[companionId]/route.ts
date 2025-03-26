@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prismadb from "@/lib/prismadb";
 import { MemoryManager } from "@/lib/memory";
 import { validateApiKey } from "@/lib/api-auth";
+import { CustomExternalApiRateLimit, rateLimit } from '@/lib/rate-limit';
 
 export async function GET(
   request: NextRequest,
@@ -21,6 +22,19 @@ export async function GET(
     }
     
     const userId = keyData.userId;
+
+    // const userId = request.headers.get('x-user-id');
+
+      const identifier = request.url + "-" + userId;
+      const { success } = await CustomExternalApiRateLimit(identifier);
+        if (!success)
+          return new NextResponse("Rate Limit Exceeded. Too many requests", {
+            status: 429,
+      });
+      
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
     
     const companion = await prismadb.companion.findUnique({
       where: {

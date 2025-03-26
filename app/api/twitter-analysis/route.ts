@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 import { TwitterService } from "@/lib/twitter-service";
 import { OpenAI } from "openai";
+import { CustomApiRateLimit, externalApiRateLimit } from "@/lib/rate-limit";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -17,6 +18,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Parse request body
+        const identifier = request.url + "-" + userId;
+        const { success } = await CustomApiRateLimit(identifier);
+          if (!success)
+            return new NextResponse("Rate Limit Exceeded. Too many requests", {
+              status: 429,
+        });
     const body = await request.json();
     const { username,name } = body;
     

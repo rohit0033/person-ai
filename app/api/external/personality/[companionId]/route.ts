@@ -4,6 +4,7 @@ import prismadb from "@/lib/prismadb";
 import { MemoryManager } from "@/lib/memory";
 import { validateApiKey } from "@/lib/api-auth";
 import { PersonalityAnalyzer } from "@/lib/personality-analyzer";
+import { CustomExternalApiRateLimit } from '@/lib/rate-limit';
 
 export async function GET(
   request: NextRequest,
@@ -22,6 +23,17 @@ export async function GET(
     }
     
     const userId = keyData.userId;
+        const identifier = request.url + "-" + userId;
+        const { success } = await CustomExternalApiRateLimit(identifier);
+        if (!success)
+          return new NextResponse("Rate Limit Exceeded. Too many requests", {
+            status: 429,
+      });
+    
+      
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
     
     // Find the companion
     const companion = await prismadb.companion.findUnique({

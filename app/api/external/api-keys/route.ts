@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs";
 import prismadb from "@/lib/prismadb";
 import { v4 as uuidv4 } from 'uuid';
+import { generateApiKey } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,21 +49,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate API key
-    const apiKey = `person_ai_${uuidv4()}`;
-    
-    // Store in database
-    const newKey = await prismadb.userApiKey.create({
-      data: {
-        userId: user.id,
-        name,
-        key: apiKey
-      }
-    });
+    const { key, keyData } = await generateApiKey(user.id, name);
 
-    // Return both the key and record id
+    // Return the key details directly from generateApiKey response
     return NextResponse.json({ 
-      key: apiKey,
-      id: newKey.id
+      id: keyData.id,
+      name: keyData.name,
+      key: key,
+      createdAt: keyData.createdAt,
+      expiresAt: keyData.expiresAt
     });
   } catch (error) {
     console.error("[API_KEYS_POST]", error);
