@@ -165,25 +165,27 @@ const ApiKeysPage = () => {
         <h2 className="text-xl font-bold mt-2 mb-4">
           Generate a new API key
         </h2>
-        <div className="flex gap-4 ">
+        <div className="flex flex-col sm:flex-row gap-4">
           <Input
             placeholder="API Key name"
-            className="w-1/2"
+            className="w-full sm:w-3/5"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-
           />
-          <Button  onClick={generateApiKey}disabled={isLoading} >
-          <PlusCircle className="w-4 h-4 mr-2" />
-            Generate API Key
+          <Button 
+            onClick={generateApiKey}
+            disabled={isLoading}
+            className="w-full sm:w-auto"
+          >
+            <PlusCircle className="w-4 h-4 mr-2" />
+            <span>Generate API Key</span>
           </Button>
-
-        </div> 
+        </div>
 
       </div>
 
       {/* APi keys */}
-      <div className="w-3/5">
+      <div className="lg:w-3/5 flex flex-col space-y-4">
         <h2 className="text-xl font-bold mb-4">
           Your API keys
         </h2>
