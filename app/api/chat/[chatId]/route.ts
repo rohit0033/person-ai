@@ -145,9 +145,13 @@ export async function POST(
       })
     ]);
     console.timeEnd('memory-operations');
+    // console.log("Vector results:", vectorResults);
+    // console.log("Recent chat history:", recentChatHistory);
+    // console.log("Personality traits:", personalityTraits);
 
     // const similarContext = relevantHistory.join("\n");
     const chatHistory = recentChatHistory;
+    // console.log("Chat history:", chatHistory);
     const personalityContext = personalityTraits.length > 0
     ? `Your personality traits (incorporate these naturally in your responses):
       ${personalityTraits.map(t => `- ${t.type}: ${t.content}`).join('\n        ')}`
