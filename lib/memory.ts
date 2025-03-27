@@ -318,6 +318,8 @@ export class MemoryManager {
           if (error.message.includes("Unauthorized") || error.message.includes("Connection refused")) {
             this.qdrantConnected = false;
           }
+
+          
         } else if (typeof error === 'string') {
           if (error.includes("Unauthorized") || error.includes("Connection refused")) {
             this.qdrantConnected = false;
