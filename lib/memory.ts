@@ -309,13 +309,24 @@ export class MemoryManager {
         }
     
         return searchResults
-          .map(match => match.payload.text as string )
+        .map(match => match?.payload?.text as string || "")
           .filter(Boolean);
       } catch (error) {
         console.error("Error in vector search:", error);
         // Mark Qdrant as disconnected if we get an auth error
-        if (error.toString().includes("Unauthorized") || error.toString().includes("Connection refused")) {
-          this.qdrantConnected = false;
+        if (error instanceof Error) {
+          if (error.message.includes("Unauthorized") || error.message.includes("Connection refused")) {
+            this.qdrantConnected = false;
+          }
+        } else if (typeof error === 'string') {
+          if (error.includes("Unauthorized") || error.includes("Connection refused")) {
+            this.qdrantConnected = false;
+          }
+        } else if (error && typeof error === 'object') {
+          const errorString = String(error);
+          if (errorString.includes("Unauthorized") || errorString.includes("Connection refused")) {
+            this.qdrantConnected = false;
+          }
         }
         // Return empty results on error so the chat can still function
         return [];
