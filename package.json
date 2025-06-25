@@ -14,6 +14,7 @@
     "@clerk/nextjs": "^4.29.9",
     "@hookform/resolvers": "^3.3.4",
     "@langchain/openai": "^0.0.28",
+    "@pinecone-database/pinecone": "^5.1.1",
     "@prisma/client": "^5.11.0",
     "@qdrant/js-client-rest": "^1.13.0",
     "@radix-ui/react-alert-dialog": "^1.1.6",

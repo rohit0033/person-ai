@@ -119,6 +119,7 @@ export const CompanionForm = ({
       const response = await axios.post("/api/completion", {
         name: form.getValues("name"),
         description: form.getValues("description"),
+        category: form.getValues("categoryId"),
         type: "personality",
       });
 
